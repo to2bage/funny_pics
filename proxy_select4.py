@@ -3,45 +3,8 @@ import socket
 import queue
 import struct
 
-def send_data(sock, data):
-    print(data)
-    bytes_sent = 0
-    while True:
-        r = sock.send(data[bytes_sent:])
-        if r < 0:
-            return r
-        bytes_sent += r
-        if bytes_sent == len(data):
-            return bytes_sent
-
-def handle_tcp(sock, remote):
-    # 处理 client socket 和 remote socket 的数据流
-    try:
-        fdset = [sock, remote]
-        while True:
-            # 用 IO 多路复用 select 监听套接字是否有数据流
-            r, w, e = select.select(fdset, [], [])
-            if sock in r:
-                data = sock.recv(4096)
-                # print("data = ", data)
-                if len(data) <= 0:
-                    break
-                result = send_data(remote, data)
-                if result < len(data):
-                    raise Exception('failed to send all data')
-
-            if remote in r:
-                data = remote.recv(4096)
-                if len(data) <= 0:
-                    break
-                result = send_data(sock, data)
-                if result < len(data):
-                    raise Exception('failed to send all data')
-    except Exception as e:
-        raise(e)
-    finally:
-        sock.close()
-        remote.close()
+def handle_tcp(client, remote):
+    pass
 
 def main():
     proxy_sock = socket.socket()
@@ -128,8 +91,6 @@ def main():
                 #rli.append(remote)              # 将远程socket放入到读队列中
                 rli.remove(item)
                 del sock_to_queue[item]
-                if item in rli:
-                    rli.remove(item)
                 if item in wli:
                     wli.remove(item)
 

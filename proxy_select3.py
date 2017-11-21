@@ -3,46 +3,6 @@ import socket
 import queue
 import struct
 
-def send_data(sock, data):
-    print(data)
-    bytes_sent = 0
-    while True:
-        r = sock.send(data[bytes_sent:])
-        if r < 0:
-            return r
-        bytes_sent += r
-        if bytes_sent == len(data):
-            return bytes_sent
-
-def handle_tcp(sock, remote):
-    # 处理 client socket 和 remote socket 的数据流
-    try:
-        fdset = [sock, remote]
-        while True:
-            # 用 IO 多路复用 select 监听套接字是否有数据流
-            r, w, e = select.select(fdset, [], [])
-            if sock in r:
-                data = sock.recv(4096)
-                # print("data = ", data)
-                if len(data) <= 0:
-                    break
-                result = send_data(remote, data)
-                if result < len(data):
-                    raise Exception('failed to send all data')
-
-            if remote in r:
-                data = remote.recv(4096)
-                if len(data) <= 0:
-                    break
-                result = send_data(sock, data)
-                if result < len(data):
-                    raise Exception('failed to send all data')
-    except Exception as e:
-        raise(e)
-    finally:
-        sock.close()
-        remote.close()
-
 def main():
     proxy_sock = socket.socket()
     proxy_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -54,7 +14,7 @@ def main():
 
     rli = [proxy_sock]
     wli = []
-    sock_to_queue = {}          # sock和其队列的字典
+    sock_to_queue = {}
 
     while True:
         readable, writeable, excepable = select.select(rli, wli, rli)
@@ -91,7 +51,7 @@ def main():
                     # addr_ip = sock.recv(4)
                     addr_ip = data[4:8]
                     remote_addr = socket.inet_ntoa(addr_ip)
-                    # print(remote_addr)
+                    print(remote_addr)
                 elif addr_type == 3:
                     # addr_len = int.from_bytes(sock.recv(1), byteorder='big')
                     addr_len = int.from_bytes(data[4], byteorder = "big")
@@ -106,7 +66,7 @@ def main():
                 # DST.PORT
                 # remote_addr_port = struct.unpack('>H', sock.recv(2))
                 remote_addr_port = struct.unpack('>H', data[-2:])
-                print("地址: %s, 端口号: %d" % (remote_addr, remote_addr_port[0]))
+                prnt("端口号: ", remote_addr_port)
                 # 返回给客户端 success
                 reply = b"\x05\x00\x00\x01"
                 reply += socket.inet_aton('0.0.0.0') + struct.pack(">H", 8888)
@@ -125,22 +85,10 @@ def main():
                     print(e)
                     continue
                 remote.setblocking(False)
-                #rli.append(remote)              # 将远程socket放入到读队列中
-                rli.remove(item)
-                del sock_to_queue[item]
-                if item in rli:
-                    rli.remove(item)
-                if item in wli:
-                    wli.remove(item)
-
-                handle_tcp(item, remote)
+                rli.append(remote)              # 将远程socket放入到读队列中
             else:
-                #item.send(sock_to_queue[item].get())
-                pass
-            if item in wli:
-                wli.remove(item)
-            # # todo
-            # handle_tcp(item, remote)
+                item.send(sock_to_queue[item].get())
+            wli.remove(item)
 
         for item in excepable:
             if item in wli:

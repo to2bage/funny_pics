@@ -15,7 +15,7 @@ def handle_tcp(client, remote):
             remote.send(req_data)
         if remote in readable:
             # 远程服务端有响应, 发送给客户端
-            reps_data = remote.recv(1024)
+            reps_data = remote.recv(4096)
             client.send(reps_data)
 
 class RequestClass(socketserver.BaseRequestHandler):
@@ -55,9 +55,15 @@ class RequestClass(socketserver.BaseRequestHandler):
         # 调用函数
         handle_tcp(conn, remote)
 
+class MyThreadingTCPServer(socketserver.ThreadingTCPServer):
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
+
 def main():
     proxy_address = ("0.0.0.0", 9999)
-    proxy_server = socketserver.ThreadingTCPServer(proxy_address, RequestClass)
+    # proxy_server = socketserver.ThreadingTCPServer(proxy_address, RequestClass)
+    proxy_server = MyThreadingTCPServer(proxy_address, RequestClass)
     proxy_server.allow_reuse_address = True
     proxy_server.serve_forever()
 

@@ -27,7 +27,7 @@ def handle_tcp(sock, remote):
             r, w, e = select.select(fdset, [], [])
             if sock in r:
                 data = sock.recv(4096)
-                # print("data = ", data)
+                print("data = ", data)
                 if len(data) <= 0:
                     break
                 result = send_data(remote, data)
@@ -85,7 +85,6 @@ def handle_con(sock, addr):
     # 拿到 remote address 的信息后，建立连接
     try:
         remote = socket.create_connection((remote_addr, remote_addr_port[0]))
-        # remote.setblocking(False)           # test
         logging.info('connecting %s:%d' % (remote_addr, remote_addr_port[0]))
     except socket.error as e:
         logging.error(e)
@@ -104,7 +103,6 @@ def main():
     try:
         while True:
             sock, addr = socketServer.accept()
-            # sock.setblocking(False)             # test
             t = threading.Thread(target=handle_con, args=(sock, addr))
             t.start()
     except socket.error as e:

@@ -4,19 +4,25 @@ import struct
 import select
 
 def handle_tcp(client, remote):
-    rli = [client, remote]
-    wli = []
+    try:
+        rli = [client, remote]
+        wli = []
 
-    while True:
-        readable, writeable, excepable = select.select(rli, wli, rli)
-        if client in readable:
-            # 客户端有新的请求
-            req_data = client.recv(1024)
-            remote.send(req_data)
-        if remote in readable:
-            # 远程服务端有响应, 发送给客户端
-            reps_data = remote.recv(4096)
-            client.send(reps_data)
+        while True:
+            readable, writeable, excepable = select.select(rli, wli, rli)
+            if client in readable:
+                # 客户端有新的请求
+                req_data = client.recv(1024)
+                remote.send(req_data)
+            if remote in readable:
+                # 远程服务端有响应, 发送给客户端
+                reps_data = remote.recv(4096)
+                client.send(reps_data)
+    except Exception as e:
+        raise(e)
+    finally:
+        client.close()
+        remote.close()
 
 class RequestClass(socketserver.BaseRequestHandler):
     def handle(self):
@@ -27,6 +33,9 @@ class RequestClass(socketserver.BaseRequestHandler):
         conn.send(b"\x05\x00")
         # Sock5连接
         data = conn.recv(1024)
+        if not data or len(data) == 0:
+            conn.close()
+            return
         # 获得请求的ip地址, data = "0x05 0x01 0x00 0x01 0x7f 0x00 0x00 0x01 0x1f 0x40"
         if data[1] != 1:
             print("[%s]: TCP连接失败!!!" % self.client_address[0], flush=True)
@@ -56,17 +65,24 @@ class RequestClass(socketserver.BaseRequestHandler):
         handle_tcp(conn, remote)
 
 class MyThreadingTCPServer(socketserver.ThreadingTCPServer):
+
     def server_bind(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
 
 def main():
     proxy_address = ("0.0.0.0", 9999)
+    
     # proxy_server = socketserver.ThreadingTCPServer(proxy_address, RequestClass)
     proxy_server = MyThreadingTCPServer(proxy_address, RequestClass)
-    proxy_server.allow_reuse_address = True
+    # proxy_server.daemon_threads = True      # 设置线程是守护者线程
+    # proxy_server.allow_reuse_address = True
     proxy_server.serve_forever()
 
+    """
+    with MyThreadingTCPServer(proxy_address, RequestClass) as proxy_server:
+        proxy_server.serve_forever()
+    """
 
 if __name__ == "__main__":
     main()
